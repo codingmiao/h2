@@ -12,19 +12,10 @@
 有数据表如下：
 
  学生表 STUDENT:
-+--------+---------+-----------+
-| sid(int 学号) 	| name(varchar 姓名) 	| cid(int 班级id) 	|
-| 1 			| 小明					| 1					|
-| 2 			| 小红					| 1					|
-| 3 			| 小白					| 2					|
-+--------+---------+-----------+
-+
+create table student(sid int,name varchar(32),cid int)
+
  班级表 CLAZZ:
-+--------+---------+-----------+
-| cid(int 班级编号) 	| name(varchar 班级名) 	|
-| 1 				| 三年1班					|
-| 2 				| 三年2班					|
-+--------+---------+-----------+
+create table clazz(cid int,name varchar(32))
 
 我们可以把sql拦截一下，替换成连接查询而直接获得学生所属班级：
 
