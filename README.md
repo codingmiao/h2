@@ -11,7 +11,7 @@
 
 有数据表如下：
 
->  学生表 STUDENT:
+ 学生表 STUDENT:
 +--------+---------+-----------+
 | sid(int 学号) 	| name(varchar 姓名) 	| cid(int 班级id) 	|
 | 1 			| 小明					| 1					|
