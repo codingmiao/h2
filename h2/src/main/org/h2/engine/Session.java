@@ -543,7 +543,7 @@ public class Session extends SessionWithState {
                     "session closed");
         }
         logger.debug("session input sql:{}",sql);//WOWTOOLSREWRITE
-        SqlRewriterManager.rewrite(sql);//WOWTOOLSREWRITE
+        sql = SqlRewriterManager.rewrite(sql);//WOWTOOLSREWRITE
         Command command;
         if (queryCacheSize > 0) {
             if (queryCache == null) {

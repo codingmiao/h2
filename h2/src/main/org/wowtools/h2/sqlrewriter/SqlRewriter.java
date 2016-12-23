@@ -13,7 +13,7 @@ public interface SqlRewriter {
 	public boolean isConform(String sql);
 	
 	/**
-	 * 重写sql
+	 * 重写sql,重写后的表名、字段、where条件等均可随意修改，但必须符合sql的语法
 	 * @param sql
 	 * @return
 	 */
