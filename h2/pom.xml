@@ -2,7 +2,7 @@
 	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 
-	<groupId>com.h2database</groupId>
+	<groupId>org.wowtools</groupId>
 	<artifactId>h2</artifactId>
 	<packaging>jar</packaging>
 	<name>H2 Database Engine</name>
@@ -171,5 +171,5 @@
 	</profiles>
 
 
-	<version>defsql</version>
+	<version>1.0</version>
 </project>
