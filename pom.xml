@@ -1,0 +1,188 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+
+	<groupId>org.wowtools</groupId>
+	<artifactId>h2</artifactId>
+	<packaging>jar</packaging>
+	<name>H2 Database Engine</name>
+	<url>https://github.com/codingmiao/h2</url>
+
+
+	<properties>
+		<maven.compiler.source>1.7</maven.compiler.source>
+		<maven.compiler.target>1.7</maven.compiler.target>
+		<derby.version>10.10.1.1</derby.version>
+		<osgi.version>4.2.0</osgi.version>
+		<slf4j.version>1.6.0</slf4j.version>
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+	</properties>
+
+	<dependencies>
+		<!-- ext -->
+		<dependency>
+			<groupId>org.wowtools</groupId>
+			<artifactId>catframe-dao</artifactId>
+			<version>1.0</version>
+		</dependency>
+		<!-- end ext -->
+		<!-- START COMPILE DEPENDENCIES ! -->
+		<dependency>
+			<groupId>javax.servlet</groupId>
+			<artifactId>javax.servlet-api</artifactId>
+			<version>3.1.0</version>
+		</dependency>
+		<dependency>
+			<groupId>org.apache.lucene</groupId>
+			<artifactId>lucene-core</artifactId>
+			<version>3.6.2</version>
+		</dependency>
+		<dependency>
+			<groupId>org.slf4j</groupId>
+			<artifactId>slf4j-api</artifactId>
+			<version>${slf4j.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.osgi</groupId>
+			<artifactId>org.osgi.core</artifactId>
+			<version>${osgi.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.osgi</groupId>
+			<artifactId>org.osgi.enterprise</artifactId>
+			<version>${osgi.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>com.vividsolutions</groupId>
+			<artifactId>jts-core</artifactId>
+			<version>1.14.0</version>
+		</dependency>
+		<!-- END COMPILE DEPENDENCIES ! -->
+	</dependencies>
+
+
+
+
+	<version>wt-1.0.1</version>
+
+	<licenses>
+		<license>
+			<name>MPL 2.0 or EPL 1.0</name>
+			<url>http://h2database.com/html/license.html</url>
+			<distribution>repo</distribution>
+		</license>
+	</licenses>
+	<developers>
+		<developer>
+			<name>liuyu</name>
+			<email>liuyu@wowtools.org</email>
+		</developer>
+	</developers>
+	<scm>
+		<connection>scm:git@github.com:codingmiao/h2.git</connection>
+		<developerConnection>scm:git@github.com:codingmiao/h2.git</developerConnection>
+		<url>git@github.com:codingmiao/h2.git</url>
+	</scm>
+	<profiles>
+		<profile>
+			<id>default-tools.jar</id>
+			<activation>
+				<file>
+					<exists>${java.home}/../lib/tools.jar</exists>
+				</file>
+			</activation>
+			<properties>
+				<tools.jar>${java.home}/../lib/tools.jar</tools.jar>
+			</properties>
+		</profile>
+		<profile>
+			<id>default-tools.jar-mac</id>
+			<activation>
+				<file>
+					<exists>${java.home}/../Classes/classes.jar</exists>
+				</file>
+			</activation>
+			<properties>
+				<tools.jar>${java.home}/../Classes/classes.jar</tools.jar>
+			</properties>
+		</profile>
+		<profile>
+			<id>release</id>
+			<distributionManagement>
+				<snapshotRepository>
+					<id>oss</id>
+					<url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+				</snapshotRepository>
+				<repository>
+					<id>oss</id>
+					<url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+				</repository>
+			</distributionManagement>
+
+			<properties>
+				<project.build.sourceEncoding>utf-8</project.build.sourceEncoding>
+				<project.reporting.outputEncoding>utf-8</project.reporting.outputEncoding>
+			</properties>
+
+			<build>
+				<plugins>
+					<!-- Source -->
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-source-plugin</artifactId>
+						<version>3.0.1</version>
+						<executions>
+							<execution>
+								<phase>package</phase>
+								<goals>
+									<goal>jar-no-fork</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+					<!-- Javadoc -->
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-javadoc-plugin</artifactId>
+						<version>2.10.4</version>
+						<configuration>
+							<tags>
+								<tag>
+									<name>date</name>
+									<placement>a</placement>
+									<head>date</head>
+								</tag>
+							</tags>
+							<additionalparam>-Xdoclint:none</additionalparam>
+						</configuration>
+
+						<executions>
+							<execution>
+								<phase>package</phase>
+								<goals>
+									<goal>jar</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+					<!-- Gpg Signature -->
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-gpg-plugin</artifactId>
+						<version>1.6</version>
+						<executions>
+							<execution>
+								<id>sign-artifacts</id>
+								<phase>verify</phase>
+								<goals>
+									<goal>sign</goal>
+								</goals>
+							</execution>
+						</executions>
+					</plugin>
+				</plugins>
+			</build>
+		</profile>
+	</profiles>
+	<description>魔改版h2,主要针对sql的自定义重写。 原h2项目地址https://github.com/h2database/h2database</description>
+</project>
