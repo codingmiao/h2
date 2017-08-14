@@ -21,7 +21,6 @@ import org.h2.util.MathUtils;
  * Represents a SQL statement. This object is only used on the server side.
  */
 public abstract class Command implements CommandInterface {
-
     /**
      * The session.
      */
@@ -113,7 +112,7 @@ public abstract class Command implements CommandInterface {
      * @return the local result set
      * @throws DbException if the command is not a query
      */
-    public ResultInterface query(int maxrows) {
+    public ResultInterface query(@SuppressWarnings("unused") int maxrows) {
         throw DbException.get(ErrorCode.METHOD_ONLY_ALLOWED_FOR_QUERY);
     }
 
@@ -147,7 +146,8 @@ public abstract class Command implements CommandInterface {
         }
     }
 
-    private void stop() {
+    @Override
+    public void stop() {
         session.endStatement();
         session.setCurrentCommand(null);
         if (!isTransactional()) {
@@ -198,7 +198,9 @@ public abstract class Command implements CommandInterface {
                 while (true) {
                     database.checkPowerOff();
                     try {
-                        return query(maxrows);
+                        ResultInterface result = query(maxrows);
+                        callStop = !result.isLazy();
+                        return result;
                     } catch (DbException e) {
                         start = filterConcurrentUpdate(e, start);
                     } catch (OutOfMemoryError e) {
@@ -368,4 +370,7 @@ public abstract class Command implements CommandInterface {
         }
     }
 
+    public void setCanReuse(boolean canReuse) {
+        this.canReuse = canReuse;
+    }
 }

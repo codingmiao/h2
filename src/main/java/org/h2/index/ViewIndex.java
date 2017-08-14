@@ -20,6 +20,7 @@ import org.h2.expression.Comparison;
 import org.h2.expression.Parameter;
 import org.h2.message.DbException;
 import org.h2.result.LocalResult;
+import org.h2.result.ResultInterface;
 import org.h2.result.Row;
 import org.h2.result.SearchRow;
 import org.h2.result.SortOrder;
@@ -172,7 +173,7 @@ public class ViewIndex extends BaseIndex implements SpatialIndex {
         Prepared p;
         session.pushSubQueryInfo(masks, filters, filter, sortOrder);
         try {
-            p = session.prepare(sql, true);
+            p = session.prepare(sql, true, true);
         } finally {
             session.popSubQueryInfo();
         }
@@ -181,7 +182,7 @@ public class ViewIndex extends BaseIndex implements SpatialIndex {
 
     private Cursor findRecursive(SearchRow first, SearchRow last) {
         assert recursive;
-        LocalResult recResult = view.getRecursiveResult();
+        ResultInterface recResult = view.getRecursiveResult();
         if (recResult != null) {
             recResult.reset();
             return new ViewCursor(this, recResult, first, last);
@@ -191,20 +192,17 @@ public class ViewIndex extends BaseIndex implements SpatialIndex {
             parser.setRightsChecked(true);
             parser.setSuppliedParameterList(originalParameters);
             query = (Query) parser.prepare(querySQL);
+            query.setNeverLazy(true);
         }
         if (!query.isUnion()) {
             throw DbException.get(ErrorCode.SYNTAX_ERROR_2,
-                    "recursive queries without UNION ALL");
+                    "recursive queries without UNION");
         }
         SelectUnion union = (SelectUnion) query;
-        if (union.getUnionType() != SelectUnion.UNION_ALL) {
-            throw DbException.get(ErrorCode.SYNTAX_ERROR_2,
-                    "recursive queries without UNION ALL");
-        }
         Query left = union.getLeft();
         // to ensure the last result is not closed
         left.disableCache();
-        LocalResult r = left.query(0);
+        ResultInterface r = left.query(0);
         LocalResult result = union.getEmptyResult();
         // ensure it is not written to disk,
         // because it is not closed normally
@@ -219,7 +217,7 @@ public class ViewIndex extends BaseIndex implements SpatialIndex {
         right.disableCache();
         while (true) {
             r = right.query(0);
-            if (r.getRowCount() == 0) {
+            if (!r.hasNext()) {
                 break;
             }
             while (r.next()) {
@@ -286,7 +284,7 @@ public class ViewIndex extends BaseIndex implements SpatialIndex {
             return findRecursive(first, last);
         }
         setupQueryParameters(session, first, last, intersection);
-        LocalResult result = query.query(0);
+        ResultInterface result = query.query(0);
         return new ViewCursor(this, result, first, last);
     }
 

@@ -7,7 +7,6 @@ package org.h2.engine;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-
 import org.h2.api.Aggregate;
 import org.h2.api.AggregateFunction;
 import org.h2.command.Parser;
@@ -55,7 +54,7 @@ public class UserAggregate extends DbObjectBase {
 
     @Override
     public String getCreateSQLForCopy(Table table, String quotedName) {
-        throw DbException.throwInternalError();
+        throw DbException.throwInternalError(toString());
     }
 
     @Override
@@ -93,7 +92,7 @@ public class UserAggregate extends DbObjectBase {
 
     /**
      * Wrap {@link AggregateFunction} in order to behave as
-     * {@link org.h2.api.Aggregate}
+     * {@link Aggregate}
      **/
     private static class AggregateWrapper implements Aggregate {
         private final AggregateFunction aggregateFunction;

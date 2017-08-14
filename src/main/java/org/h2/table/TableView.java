@@ -26,7 +26,7 @@ import org.h2.index.Index;
 import org.h2.index.IndexType;
 import org.h2.index.ViewIndex;
 import org.h2.message.DbException;
-import org.h2.result.LocalResult;
+import org.h2.result.ResultInterface;
 import org.h2.result.Row;
 import org.h2.result.SortOrder;
 import org.h2.schema.Schema;
@@ -55,14 +55,15 @@ public class TableView extends Table {
     private long maxDataModificationId;
     private User owner;
     private Query topQuery;
-    private LocalResult recursiveResult;
+    private ResultInterface recursiveResult;
     private boolean tableExpression;
+    private boolean isRecursiveQueryDetected;
 
     public TableView(Schema schema, int id, String name, String querySQL,
             ArrayList<Parameter> params, Column[] columnTemplates, Session session,
-            boolean recursive) {
+            boolean recursive, boolean literalsChecked) {
         super(schema, id, name, false, true);
-        init(querySQL, params, columnTemplates, session, recursive);
+        init(querySQL, params, columnTemplates, session, recursive, literalsChecked);
     }
 
     /**
@@ -70,39 +71,39 @@ public class TableView extends Table {
      * dependent views.
      *
      * @param querySQL the SQL statement
-     * @param columnNames the column names
      * @param session the session
      * @param recursive whether this is a recursive view
      * @param force if errors should be ignored
      */
-    public void replace(String querySQL, String[] columnNames, Session session,
-            boolean recursive, boolean force) {
+    public void replace(String querySQL,  Session session,
+            boolean recursive, boolean force, boolean literalsChecked) {
         String oldQuerySQL = this.querySQL;
         Column[] oldColumnTemplates = this.columnTemplates;
         boolean oldRecursive = this.recursive;
-        init(querySQL, null, columnTemplates, session, recursive);
+        init(querySQL, null, columnTemplates, session, recursive, literalsChecked);
         DbException e = recompile(session, force, true);
         if (e != null) {
-            init(oldQuerySQL, null, oldColumnTemplates, session, oldRecursive);
+            init(oldQuerySQL, null, oldColumnTemplates, session, oldRecursive, literalsChecked);
             recompile(session, true, false);
             throw e;
         }
     }
 
     private synchronized void init(String querySQL, ArrayList<Parameter> params,
-            Column[] columnTemplates, Session session, boolean recursive) {
+            Column[] columnTemplates, Session session, boolean recursive, boolean literalsChecked) {
         this.querySQL = querySQL;
         this.columnTemplates = columnTemplates;
         this.recursive = recursive;
+        this.isRecursiveQueryDetected = false;
         index = new ViewIndex(this, querySQL, params, recursive);
-        initColumnsAndTables(session);
+        initColumnsAndTables(session, literalsChecked);
     }
 
-    private static Query compileViewQuery(Session session, String sql) {
+    private static Query compileViewQuery(Session session, String sql, boolean literalsChecked) {
         Prepared p;
         session.setParsingView(true);
         try {
-            p = session.prepare(sql);
+            p = session.prepare(sql, false, literalsChecked);
         } finally {
             session.setParsingView(false);
         }
@@ -124,7 +125,7 @@ public class TableView extends Table {
     public synchronized DbException recompile(Session session, boolean force,
             boolean clearIndexCache) {
         try {
-            compileViewQuery(session, querySQL);
+            compileViewQuery(session, querySQL, false);
         } catch (DbException e) {
             if (!force) {
                 return e;
@@ -134,7 +135,7 @@ public class TableView extends Table {
         if (views != null) {
             views = New.arrayList(views);
         }
-        initColumnsAndTables(session);
+        initColumnsAndTables(session, false);
         if (views != null) {
             for (TableView v : views) {
                 DbException e = v.recompile(session, force, false);
@@ -149,11 +150,11 @@ public class TableView extends Table {
         return force ? null : createException;
     }
 
-    private void initColumnsAndTables(Session session) {
+    private void initColumnsAndTables(Session session, boolean literalsChecked) {
         Column[] cols;
         removeViewFromTables();
         try {
-            Query query = compileViewQuery(session, querySQL);
+            Query query = compileViewQuery(session, querySQL, literalsChecked);
             this.querySQL = query.getPlanSQL();
             tables = New.arrayList(query.getTables());
             ArrayList<Expression> expressions = query.getExpressions();
@@ -203,9 +204,14 @@ public class TableView extends Table {
         } catch (DbException e) {
             e.addSQL(getCreateSQL());
             createException = e;
-            // if it can't be compiled, then it's a 'zero column table'
+            // If it can't be compiled, then it's a 'zero column table'
             // this avoids problems when creating the view when opening the
-            // database
+            // database.
+            // If it can not be compiled - it could also be a recursive common
+            // table expression query.
+            if (isRecursiveQueryExceptionDetected(createException)) {
+                this.isRecursiveQueryDetected = true;
+            }
             tables = New.arrayList();
             cols = new Column[0];
             if (recursive && columnTemplates != null) {
@@ -389,7 +395,7 @@ public class TableView extends Table {
 
     @Override
     public long getRowCount(Session session) {
-        throw DbException.throwInternalError();
+        throw DbException.throwInternalError(toString());
     }
 
     @Override
@@ -533,7 +539,7 @@ public class TableView extends Table {
         String querySQL = query.getPlanSQL();
         TableView v = new TableView(mainSchema, 0, name,
                 querySQL, query.getParameters(), null, session,
-                false);
+                false, true /* literals have already been checked when parsing original query */);
         if (v.createException != null) {
             throw v.createException;
         }
@@ -591,14 +597,14 @@ public class TableView extends Table {
         return viewQuery.isEverything(ExpressionVisitor.DETERMINISTIC_VISITOR);
     }
 
-    public void setRecursiveResult(LocalResult value) {
+    public void setRecursiveResult(ResultInterface value) {
         if (recursiveResult != null) {
             recursiveResult.close();
         }
         this.recursiveResult = value;
     }
 
-    public LocalResult getRecursiveResult() {
+    public ResultInterface getRecursiveResult() {
         return recursiveResult;
     }
 
@@ -630,7 +636,7 @@ public class TableView extends Table {
         private final int[] masks;
         private final TableView view;
 
-        public CacheKey(int[] masks, TableView view) {
+        CacheKey(int[] masks, TableView view) {
             this.masks = masks;
             this.view = view;
         }
@@ -664,6 +670,31 @@ public class TableView extends Table {
             }
             return true;
         }
+    }
+
+    /**
+     * Was query recursion detected during compiling.
+     *
+     * @return true if yes
+     */
+    public boolean isRecursiveQueryDetected() {
+        return isRecursiveQueryDetected;
+    }
+
+    /**
+     * Does exception indicate query recursion?
+     */
+    private boolean isRecursiveQueryExceptionDetected(DbException exception) {
+        if (exception == null) {
+            return false;
+        }
+        if (exception.getErrorCode() != ErrorCode.TABLE_OR_VIEW_NOT_FOUND_1) {
+            return false;
+        }
+        if (!exception.getMessage().contains("\"" + this.getName() + "\"")) {
+            return false;
+        }
+        return true;
     }
 
 }

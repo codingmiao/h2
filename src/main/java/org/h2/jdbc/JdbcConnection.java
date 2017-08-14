@@ -48,6 +48,7 @@ import org.h2.util.CloseWatcher;
 import org.h2.util.JdbcUtils;
 import org.h2.util.Utils;
 import org.h2.value.CompareMode;
+import org.h2.value.DataType;
 import org.h2.value.Value;
 import org.h2.value.ValueInt;
 import org.h2.value.ValueNull;
@@ -1547,7 +1548,8 @@ public class JdbcConnection extends TraceObject implements Connection,
                 "SELECT SCOPE_IDENTITY() " +
                 "WHERE SCOPE_IDENTITY() IS NOT NULL", getGeneratedKeys);
         ResultInterface result = getGeneratedKeys.executeQuery(0, false);
-        ResultSet rs = new JdbcResultSet(this, stat, result, id, false, true, false);
+        ResultSet rs = new JdbcResultSet(this, stat, getGeneratedKeys, result,
+                id, false, true, false);
         return rs;
     }
 
@@ -1634,12 +1636,24 @@ public class JdbcConnection extends TraceObject implements Connection,
     }
 
     /**
-     * [Not supported] Create a new empty Array object.
+     * Create a new Array object.
+     *
+     * @param typeName the type name
+     * @param elements the values
+     * @return the array
      */
     @Override
     public Array createArrayOf(String typeName, Object[] elements)
             throws SQLException {
-        throw unsupported("createArray");
+        try {
+            int id = getNextId(TraceObject.ARRAY);
+            debugCodeAssign("Array", TraceObject.ARRAY, id, "createArrayOf()");
+            checkClosed();
+            Value value = DataType.convertToValue(session, elements, Value.ARRAY);
+            return new JdbcArray(this, value, id);
+        } catch (Exception e) {
+            throw logAndConvert(e);
+        }
     }
 
     /**

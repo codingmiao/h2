@@ -28,6 +28,7 @@ import org.h2.api.TimestampWithTimeZone;
 import org.h2.engine.Constants;
 import org.h2.engine.SessionInterface;
 import org.h2.engine.SysProperties;
+import org.h2.jdbc.JdbcArray;
 import org.h2.jdbc.JdbcBlob;
 import org.h2.jdbc.JdbcClob;
 import org.h2.jdbc.JdbcConnection;
@@ -314,10 +315,14 @@ public class DataType {
                 // 24 for ValueTimestamp, 32 for java.sql.Timestamp
                 56
         );
-        add(Value.TIMESTAMP_TZ, Types.OTHER, "TimestampTimeZone",
+        // 2014 is the value of Types.TIMESTAMP_WITH_TIMEZONE
+        // use the value instead of the reference because the code has to
+        // compile (on Java 1.7). Can be replaced with
+        // Types.TIMESTAMP_WITH_TIMEZONE once Java 1.8 is required.
+        add(Value.TIMESTAMP_TZ, 2014, "TimestampTimeZone",
                 createDate(ValueTimestampTimeZone.PRECISION, "TIMESTAMP_TZ",
                         ValueTimestampTimeZone.DEFAULT_SCALE, ValueTimestampTimeZone.DISPLAY_SIZE),
-                new String[]{"TIMESTAMP WITH TIMEZONE"},
+                new String[]{"TIMESTAMP WITH TIME ZONE"},
                 // 26 for ValueTimestampUtc, 32 for java.sql.Timestamp
                 58
         );
@@ -379,6 +384,14 @@ public class DataType {
                 dataType,
                 new String[]{"RESULT_SET"},
                 400
+        );
+        dataType = createString(false);
+        dataType.supportsPrecision = false;
+        dataType.supportsScale = false;
+        add(Value.ENUM, Types.OTHER, "Enum",
+                dataType,
+                new String[]{"ENUM"},
+                48
         );
         for (Integer i : TYPES_BY_VALUE_TYPE.keySet()) {
             Value.getOrder(i);
@@ -662,6 +675,12 @@ public class DataType {
                 v = ValueArray.get(values);
                 break;
             }
+            case Value.ENUM: {
+                int value = rs.getInt(columnIndex);
+                v = rs.wasNull() ? (Value) ValueNull.INSTANCE :
+                    ValueInt.get(value);
+                break;
+            }
             case Value.RESULT_SET: {
                 ResultSet x = (ResultSet) rs.getObject(columnIndex);
                 if (x == null) {
@@ -677,6 +696,11 @@ public class DataType {
                 return ValueGeometry.getFromGeometry(x);
             }
             default:
+                if (JdbcUtils.customDataTypesHandler != null) {
+                    return JdbcUtils.customDataTypesHandler.getValue(type,
+                        rs.getObject(columnIndex),
+                        session.getDataHandler());
+                }
                 throw DbException.throwInternalError("type="+type);
             }
             return v;
@@ -734,10 +758,10 @@ public class DataType {
             return String.class.getName();
         case Value.BLOB:
             // "java.sql.Blob";
-            return java.sql.Blob.class.getName();
+            return Blob.class.getName();
         case Value.CLOB:
             // "java.sql.Clob";
-            return java.sql.Clob.class.getName();
+            return Clob.class.getName();
         case Value.DOUBLE:
             // "java.lang.Double";
             return Double.class.getName();
@@ -759,6 +783,9 @@ public class DataType {
         case Value.GEOMETRY:
             return GEOMETRY_CLASS_NAME;
         default:
+            if (JdbcUtils.customDataTypesHandler != null) {
+                return JdbcUtils.customDataTypesHandler.getDataTypeClassName(type);
+            }
             throw DbException.throwInternalError("type="+type);
         }
     }
@@ -774,6 +801,9 @@ public class DataType {
             throw DbException.get(ErrorCode.UNKNOWN_DATA_TYPE_1, "?");
         }
         DataType dt = TYPES_BY_VALUE_TYPE.get(type);
+        if (dt == null && JdbcUtils.customDataTypesHandler != null) {
+            dt = JdbcUtils.customDataTypesHandler.getDataTypeById(type);
+        }
         if (dt == null) {
             dt = TYPES_BY_VALUE_TYPE.get(Value.NULL);
         }
@@ -872,6 +902,8 @@ public class DataType {
             return Value.TIME;
         case Types.TIMESTAMP:
             return Value.TIMESTAMP;
+        case 2014: // Types.TIMESTAMP_WITH_TIMEZONE
+            return Value.TIMESTAMP_TZ;
         case Types.BLOB:
             return Value.BLOB;
         case Types.CLOB:
@@ -944,13 +976,13 @@ public class DataType {
             return Value.TIMESTAMP;
         } else if (java.util.Date.class.isAssignableFrom(x)) {
             return Value.TIMESTAMP;
-        } else if (java.io.Reader.class.isAssignableFrom(x)) {
+        } else if (Reader.class.isAssignableFrom(x)) {
             return Value.CLOB;
-        } else if (java.sql.Clob.class.isAssignableFrom(x)) {
+        } else if (Clob.class.isAssignableFrom(x)) {
             return Value.CLOB;
-        } else if (java.io.InputStream.class.isAssignableFrom(x)) {
+        } else if (InputStream.class.isAssignableFrom(x)) {
             return Value.BLOB;
-        } else if (java.sql.Blob.class.isAssignableFrom(x)) {
+        } else if (Blob.class.isAssignableFrom(x)) {
             return Value.BLOB;
         } else if (Object[].class.isAssignableFrom(x)) {
             // this includes String[] and so on
@@ -966,6 +998,9 @@ public class DataType {
         } else if (LocalDateTimeUtils.isOffsetDateTime(x)) {
             return Value.TIMESTAMP_TZ;
         } else {
+            if (JdbcUtils.customDataTypesHandler != null) {
+                return JdbcUtils.customDataTypesHandler.getTypeIdFromClass(x);
+            }
             return Value.JAVA_OBJECT;
         }
     }
@@ -1027,27 +1062,34 @@ public class DataType {
             return ValueTimestamp.get((Timestamp) x);
         } else if (x instanceof java.util.Date) {
             return ValueTimestamp.fromMillis(((java.util.Date) x).getTime());
-        } else if (x instanceof java.io.Reader) {
-            Reader r = new BufferedReader((java.io.Reader) x);
+        } else if (x instanceof Reader) {
+            Reader r = new BufferedReader((Reader) x);
             return session.getDataHandler().getLobStorage().
                     createClob(r, -1);
-        } else if (x instanceof java.sql.Clob) {
+        } else if (x instanceof Clob) {
             try {
-                java.sql.Clob clob = (java.sql.Clob) x;
+                Clob clob = (Clob) x;
                 Reader r = new BufferedReader(clob.getCharacterStream());
                 return session.getDataHandler().getLobStorage().
                         createClob(r, clob.length());
             } catch (SQLException e) {
                 throw DbException.convert(e);
             }
-        } else if (x instanceof java.io.InputStream) {
+        } else if (x instanceof InputStream) {
             return session.getDataHandler().getLobStorage().
-                    createBlob((java.io.InputStream) x, -1);
-        } else if (x instanceof java.sql.Blob) {
+                    createBlob((InputStream) x, -1);
+        } else if (x instanceof Blob) {
             try {
-                java.sql.Blob blob = (java.sql.Blob) x;
+                Blob blob = (Blob) x;
                 return session.getDataHandler().getLobStorage().
                         createBlob(blob.getBinaryStream(), blob.length());
+            } catch (SQLException e) {
+                throw DbException.convert(e);
+            }
+        } else if (x instanceof Array) {
+            Array array = (Array) x;
+            try {
+                return convertToValue(session, array.getArray(), Value.ARRAY);
             } catch (SQLException e) {
                 throw DbException.convert(e);
             }
@@ -1081,7 +1123,13 @@ public class DataType {
             return LocalDateTimeUtils.localDateTimeToValue(x);
         } else if (LocalDateTimeUtils.isOffsetDateTime(x.getClass())) {
             return LocalDateTimeUtils.offsetDateTimeToValue(x);
+        } else if (x instanceof TimestampWithTimeZone) {
+            return ValueTimestampTimeZone.get((TimestampWithTimeZone) x);
         } else {
+            if (JdbcUtils.customDataTypesHandler != null) {
+                return JdbcUtils.customDataTypesHandler.getValue(type, x,
+                        session.getDataHandler());
+            }
             return ValueJavaObject.getNoCopy(x, null, session.getDataHandler());
         }
     }
@@ -1120,7 +1168,11 @@ public class DataType {
      * @return the data type object
      */
     public static DataType getTypeByName(String s) {
-        return TYPES_BY_NAME.get(s);
+        DataType result = TYPES_BY_NAME.get(s);
+        if (result == null && JdbcUtils.customDataTypesHandler != null) {
+            result = JdbcUtils.customDataTypesHandler.getDataTypeByName(s);
+        }
+        return result;
     }
 
     /**
@@ -1166,7 +1218,29 @@ public class DataType {
         case Value.LONG:
         case Value.SHORT:
             return true;
+        case Value.BOOLEAN:
+        case Value.TIME:
+        case Value.DATE:
+        case Value.TIMESTAMP:
+        case Value.TIMESTAMP_TZ:
+        case Value.BYTES:
+        case Value.UUID:
+        case Value.STRING:
+        case Value.STRING_IGNORECASE:
+        case Value.STRING_FIXED:
+        case Value.BLOB:
+        case Value.CLOB:
+        case Value.NULL:
+        case Value.JAVA_OBJECT:
+        case Value.UNKNOWN:
+        case Value.ARRAY:
+        case Value.RESULT_SET:
+        case Value.GEOMETRY:
+            return false;
         default:
+            if (JdbcUtils.customDataTypesHandler != null) {
+                return JdbcUtils.customDataTypesHandler.supportsAdd(type);
+            }
             return false;
         }
     }
@@ -1190,7 +1264,31 @@ public class DataType {
             return Value.DECIMAL;
         case Value.SHORT:
             return Value.LONG;
+        case Value.BOOLEAN:
+        case Value.DECIMAL:
+        case Value.TIME:
+        case Value.DATE:
+        case Value.TIMESTAMP:
+        case Value.TIMESTAMP_TZ:
+        case Value.BYTES:
+        case Value.UUID:
+        case Value.STRING:
+        case Value.STRING_IGNORECASE:
+        case Value.STRING_FIXED:
+        case Value.BLOB:
+        case Value.CLOB:
+        case Value.DOUBLE:
+        case Value.NULL:
+        case Value.JAVA_OBJECT:
+        case Value.UNKNOWN:
+        case Value.ARRAY:
+        case Value.RESULT_SET:
+        case Value.GEOMETRY:
+            return type;
         default:
+            if (JdbcUtils.customDataTypesHandler != null) {
+                return JdbcUtils.customDataTypesHandler.getAddProofType(type);
+            }
             return type;
         }
     }
@@ -1238,12 +1336,46 @@ public class DataType {
             return new JdbcBlob(conn, v, 0);
         } else if (paramClass == Clob.class) {
             return new JdbcClob(conn, v, 0);
+        } else if (paramClass == Array.class) {
+            return new JdbcArray(conn, v, 0);
         }
-        if (v.getType() == Value.JAVA_OBJECT) {
+        switch (v.getType()) {
+        case Value.JAVA_OBJECT: {
             Object o = SysProperties.serializeJavaObject ? JdbcUtils.deserialize(v.getBytes(),
                     conn.getSession().getDataHandler()) : v.getObject();
             if (paramClass.isAssignableFrom(o.getClass())) {
                 return o;
+            }
+            break;
+        }
+        case Value.BOOLEAN:
+        case Value.BYTE:
+        case Value.SHORT:
+        case Value.INT:
+        case Value.LONG:
+        case Value.DECIMAL:
+        case Value.TIME:
+        case Value.DATE:
+        case Value.TIMESTAMP:
+        case Value.TIMESTAMP_TZ:
+        case Value.BYTES:
+        case Value.UUID:
+        case Value.STRING:
+        case Value.STRING_IGNORECASE:
+        case Value.STRING_FIXED:
+        case Value.BLOB:
+        case Value.CLOB:
+        case Value.DOUBLE:
+        case Value.FLOAT:
+        case Value.NULL:
+        case Value.UNKNOWN:
+        case Value.ARRAY:
+        case Value.RESULT_SET:
+        case Value.GEOMETRY:
+            break;
+        default:
+            if (JdbcUtils.customDataTypesHandler != null) {
+                return JdbcUtils.customDataTypesHandler.getObject(v, paramClass);
             }
         }
         throw DbException.getUnsupportedException("converting to class " + paramClass.getName());

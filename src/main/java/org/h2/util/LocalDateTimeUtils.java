@@ -129,8 +129,9 @@ public class LocalDateTimeUtils {
         LOCAL_DATE_TIME = tryGetClass("java.time.LocalDateTime");
         OFFSET_DATE_TIME = tryGetClass("java.time.OffsetDateTime");
         ZONE_OFFSET = tryGetClass("java.time.ZoneOffset");
-        IS_JAVA8_DATE_API_PRESENT = LOCAL_DATE != null && LOCAL_TIME != null
-                        && LOCAL_DATE_TIME != null && OFFSET_DATE_TIME != null && ZONE_OFFSET != null;
+        IS_JAVA8_DATE_API_PRESENT = LOCAL_DATE != null && LOCAL_TIME != null &&
+                LOCAL_DATE_TIME != null && OFFSET_DATE_TIME != null &&
+                ZONE_OFFSET != null;
 
         if (IS_JAVA8_DATE_API_PRESENT) {
 
@@ -139,11 +140,11 @@ public class LocalDateTimeUtils {
             Class<?> duration = getClass("java.time.Duration");
             Class<?> temporal = getClass("java.time.temporal.Temporal");
 
-            TO_LOCAL_DATE = getMethod(java.sql.Date.class, "toLocalDate");
+            TO_LOCAL_DATE = getMethod(Date.class, "toLocalDate");
 
             LOCAL_TIME_OF_NANO = getMethod(LOCAL_TIME, "ofNanoOfDay", long.class);
 
-            DATE_VALUE_OF = getMethod(java.sql.Date.class, "valueOf", LOCAL_DATE);
+            DATE_VALUE_OF = getMethod(Date.class, "valueOf", LOCAL_DATE);
 
             LOCAL_TIME_TO_NANO = getMethod(LOCAL_TIME, "toNanoOfDay");
 
@@ -421,7 +422,8 @@ public class LocalDateTimeUtils {
      */
     public static Object valueToLocalTime(Value value) {
         try {
-            return LOCAL_TIME_OF_NANO.invoke(null, ((ValueTime) value.convertTo(Value.TIME)).getNanos());
+            return LOCAL_TIME_OF_NANO.invoke(null,
+                    ((ValueTime) value.convertTo(Value.TIME)).getNanos());
         } catch (IllegalAccessException e) {
             throw DbException.convert(e);
         } catch (InvocationTargetException e) {

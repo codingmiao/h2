@@ -93,7 +93,7 @@ public class MultiVersionIndex implements Index {
 
     @Override
     public Cursor findNext(Session session, SearchRow first, SearchRow last) {
-        throw DbException.throwInternalError();
+        throw DbException.throwInternalError(toString());
     }
 
     @Override
@@ -228,6 +228,11 @@ public class MultiVersionIndex implements Index {
     @Override
     public int getColumnIndex(Column col) {
         return base.getColumnIndex(col);
+    }
+
+    @Override
+    public boolean isFirstColumn(Column column) {
+        return base.isFirstColumn(column);
     }
 
     @Override

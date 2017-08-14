@@ -10,6 +10,7 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.h2.api.ErrorCode;
+import org.h2.command.ddl.CreateSynonymData;
 import org.h2.command.ddl.CreateTableData;
 import org.h2.constraint.Constraint;
 import org.h2.engine.Database;
@@ -27,7 +28,9 @@ import org.h2.mvstore.db.MVTableEngine;
 import org.h2.table.RegularTable;
 import org.h2.table.Table;
 import org.h2.table.TableLink;
+import org.h2.table.TableSynonym;
 import org.h2.util.New;
+import org.h2.util.StringUtils;
 
 /**
  * A schema as created by the SQL statement
@@ -37,8 +40,10 @@ public class Schema extends DbObjectBase {
 
     private User owner;
     private final boolean system;
+    private ArrayList<String> tableEngineParams;
 
     private final ConcurrentHashMap<String, Table> tablesAndViews;
+    private final ConcurrentHashMap<String, TableSynonym> synonyms;
     private final ConcurrentHashMap<String, Index> indexes;
     private final ConcurrentHashMap<String, Sequence> sequences;
     private final ConcurrentHashMap<String, TriggerObject> triggers;
@@ -66,6 +71,7 @@ public class Schema extends DbObjectBase {
     public Schema(Database database, int id, String schemaName, User owner,
             boolean system) {
         tablesAndViews = database.newConcurrentStringMap();
+        synonyms = database.newConcurrentStringMap();
         indexes = database.newConcurrentStringMap();
         sequences = database.newConcurrentStringMap();
         triggers = database.newConcurrentStringMap();
@@ -88,7 +94,7 @@ public class Schema extends DbObjectBase {
 
     @Override
     public String getCreateSQLForCopy(Table table, String quotedName) {
-        throw DbException.throwInternalError();
+        throw DbException.throwInternalError(toString());
     }
 
     @Override
@@ -175,12 +181,32 @@ public class Schema extends DbObjectBase {
         return owner;
     }
 
+    /**
+     * Get table engine params of this schema.
+     *
+     * @return default table engine params
+     */
+    public ArrayList<String> getTableEngineParams() {
+        return tableEngineParams;
+    }
+
+    /**
+     * Set table engine params of this schema.
+     * @param tableEngineParams default table engine params
+     */
+    public void setTableEngineParams(ArrayList<String> tableEngineParams) {
+        this.tableEngineParams = tableEngineParams;
+    }
+
     @SuppressWarnings("unchecked")
     private Map<String, SchemaObject> getMap(int type) {
         Map<String, ? extends SchemaObject> result;
         switch (type) {
         case DbObject.TABLE_OR_VIEW:
             result = tablesAndViews;
+            break;
+        case DbObject.SYNONYM:
+            result = synonyms;
             break;
         case DbObject.SEQUENCE:
             result = sequences;
@@ -254,7 +280,7 @@ public class Schema extends DbObjectBase {
     /**
      * Try to find a table or view with this name. This method returns null if
      * no object with this name exists. Local temporary tables are also
-     * returned.
+     * returned. Synonyms are not returned or resolved.
      *
      * @param session the session
      * @param name the object name
@@ -266,6 +292,39 @@ public class Schema extends DbObjectBase {
             table = session.findLocalTempTable(name);
         }
         return table;
+    }
+
+    /**
+     * Try to find a table or view with this name. This method returns null if
+     * no object with this name exists. Local temporary tables are also
+     * returned. If a synonym with this name exists, the backing table of the
+     * synonym is returned
+     *
+     * @param session the session
+     * @param name the object name
+     * @return the object or null
+     */
+    public Table resolveTableOrView(Session session, String name) {
+        Table table = findTableOrView(session, name);
+        if (table == null) {
+            TableSynonym synonym = synonyms.get(name);
+            if (synonym != null) {
+                return synonym.getSynonymFor();
+            }
+            return null;
+        }
+        return table;
+    }
+
+    /**
+     * Try to find a synonym with this name. This method returns null if
+     * no object with this name exists.
+     *
+     * @param name the object name
+     * @return the object or null
+     */
+    public TableSynonym getSynonym(String name) {
+        return synonyms.get(name);
     }
 
     /**
@@ -359,7 +418,7 @@ public class Schema extends DbObjectBase {
 
     private String getUniqueName(DbObject obj,
             Map<String, ? extends SchemaObject> map, String prefix) {
-        String hash = Integer.toHexString(obj.getName().hashCode()).toUpperCase();
+        String hash = StringUtils.toUpperEnglish(Integer.toHexString(obj.getName().hashCode()));
         String name = null;
         synchronized (temporaryUniqueNames) {
             for (int i = 1, len = hash.length(); i < len; i++) {
@@ -539,6 +598,13 @@ public class Schema extends DbObjectBase {
         }
     }
 
+
+    public ArrayList<TableSynonym> getAllSynonyms() {
+        synchronized (database) {
+            return New.arrayList(synonyms.values());
+        }
+    }
+
     /**
      * Get the table with the given name, if any.
      *
@@ -587,9 +653,20 @@ public class Schema extends DbObjectBase {
                 }
             }
             if (data.tableEngine != null) {
+                if (data.tableEngineParams == null) {
+                    data.tableEngineParams = this.tableEngineParams;
+                }
                 return database.getTableEngine(data.tableEngine).createTable(data);
             }
             return new RegularTable(data);
+        }
+    }
+
+    public TableSynonym createSynonym(CreateSynonymData data) {
+        synchronized (database) {
+            database.lockMeta(data.session);
+            data.schema = this;
+            return new TableSynonym(data);
         }
     }
 

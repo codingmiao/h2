@@ -18,14 +18,12 @@ import org.h2.util.MathUtils;
 import org.h2.util.StringUtils;
 
 /**
- * Implementation of the TIMESTAMP WITH TIMEZONE data type.
+ * Implementation of the TIMESTAMP WITH TIME ZONE data type.
  *
  * @see <a href="https://en.wikipedia.org/wiki/ISO_8601#Time_zone_designators">
  *      ISO 8601 Time zone designators</a>
  */
 public class ValueTimestampTimeZone extends Value {
-
-    private static final TimeZone GMT_TIMEZONE = TimeZone.getTimeZone("GMT");
 
     /**
      * The precision in digits.
@@ -42,6 +40,8 @@ public class ValueTimestampTimeZone extends Value {
      * The default scale for timestamps.
      */
     static final int DEFAULT_SCALE = 10;
+
+    private static final TimeZone GMT_TIMEZONE = TimeZone.getTimeZone("GMT");
 
     /**
      * A bit field with bits for the year, month, and day (see DateTimeUtils for
@@ -113,7 +113,7 @@ public class ValueTimestampTimeZone extends Value {
             return parseTry(s);
         } catch (Exception e) {
             throw DbException.get(ErrorCode.INVALID_DATETIME_CONSTANT_2, e,
-                    "TIMESTAMP WITH TIMEZONE", s);
+                    "TIMESTAMP WITH TIME ZONE", s);
         }
     }
 
@@ -249,7 +249,7 @@ public class ValueTimestampTimeZone extends Value {
 
     @Override
     public String getSQL() {
-        return "TIMESTAMP WITH TIMEZONE '" + getString() + "'";
+        return "TIMESTAMP WITH TIME ZONE '" + getString() + "'";
     }
 
     @Override
@@ -353,13 +353,13 @@ public class ValueTimestampTimeZone extends Value {
     @Override
     public Value add(Value v) {
         throw DbException.getUnsupportedException(
-                "manipulating TIMESTAMP WITH TIMEZONE values is unsupported");
+                "manipulating TIMESTAMP WITH TIME ZONE values is unsupported");
     }
 
     @Override
     public Value subtract(Value v) {
         throw DbException.getUnsupportedException(
-                "manipulating TIMESTAMP WITH TIMEZONE values is unsupported");
+                "manipulating TIMESTAMP WITH TIME ZONE values is unsupported");
     }
 
 }

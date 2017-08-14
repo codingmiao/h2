@@ -1534,7 +1534,7 @@ public class Recover extends Tool implements DataHandler {
         // must occur before copying data,
         // otherwise the lob storage may be overwritten
         boolean deleteLobs = false;
-        for (Map.Entry<Integer, String> entry : tableMap.entrySet()) {
+        for (Entry<Integer, String> entry : tableMap.entrySet()) {
             Integer objectId = entry.getKey();
             String name = entry.getValue();
             if (objectIdSet.contains(objectId)) {
@@ -1550,7 +1550,7 @@ public class Recover extends Tool implements DataHandler {
                 }
             }
         }
-        for (Map.Entry<Integer, String> entry : tableMap.entrySet()) {
+        for (Entry<Integer, String> entry : tableMap.entrySet()) {
             Integer objectId = entry.getKey();
             String name = entry.getValue();
             if (objectIdSet.contains(objectId)) {

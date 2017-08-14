@@ -14,6 +14,7 @@ import java.io.Reader;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import org.h2.engine.Constants;
+import org.h2.engine.Mode;
 import org.h2.engine.SysProperties;
 import org.h2.message.DbException;
 import org.h2.mvstore.DataUtils;
@@ -22,6 +23,7 @@ import org.h2.store.FileStore;
 import org.h2.store.FileStoreInputStream;
 import org.h2.store.FileStoreOutputStream;
 import org.h2.store.fs.FileUtils;
+import org.h2.table.Column;
 import org.h2.util.IOUtils;
 import org.h2.util.MathUtils;
 import org.h2.util.SmallLRUCache;
@@ -443,7 +445,7 @@ public class ValueLob extends Value {
      * @return the converted value
      */
     @Override
-    public Value convertTo(int t) {
+    public Value convertTo(int t, int precision, Mode mode, Column column) {
         if (t == type) {
             return this;
         } else if (t == Value.CLOB) {
@@ -453,7 +455,7 @@ public class ValueLob extends Value {
             ValueLob copy = ValueLob.createBlob(getInputStream(), -1, handler);
             return copy;
         }
-        return super.convertTo(t);
+        return super.convertTo(t, precision, mode, column);
     }
 
     @Override
@@ -723,7 +725,7 @@ public class ValueLob extends Value {
                 }
                 Value v2 = copy(h, tabId);
                 if (SysProperties.CHECK && v2 != this) {
-                    DbException.throwInternalError();
+                    DbException.throwInternalError(v2.toString());
                 }
             }
         } catch (IOException e) {

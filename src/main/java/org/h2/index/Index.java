@@ -89,7 +89,7 @@ public interface Index extends SchemaObject {
      * @return the estimated cost
      */
     double getCost(Session session, int[] masks, TableFilter[] filters, int filter,
-            SortOrder sortOrder, HashSet<Column> allColumnsSet);
+                   SortOrder sortOrder, HashSet<Column> allColumnsSet);
 
     /**
      * Remove the index.
@@ -189,6 +189,14 @@ public interface Index extends SchemaObject {
      * @return the index (0 meaning first column)
      */
     int getColumnIndex(Column col);
+
+    /**
+     * Check if the given column is the first for this index
+     *
+     * @param column the column
+     * @return true if the given columns is the first
+     */
+    boolean isFirstColumn(Column column);
 
     /**
      * Get the indexed columns as index columns (with ordering information).

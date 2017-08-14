@@ -15,7 +15,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
-
 import org.h2.api.ErrorCode;
 import org.h2.engine.Database;
 import org.h2.engine.SysProperties;
@@ -457,18 +456,22 @@ public class LobStorageBackend implements LobStorageInterface {
                 try {
                     init();
                     ValueLobDb v = null;
-                    if(!old.isRecoveryReference()){
+                    if (!old.isRecoveryReference()) {
                         long lobId = getNextLobId();
-                        String sql = "INSERT INTO " + LOB_MAP + "(LOB, SEQ, POS, HASH, BLOCK) " +
-                                "SELECT ?, SEQ, POS, HASH, BLOCK FROM " + LOB_MAP + " WHERE LOB = ?";
+                        String sql = "INSERT INTO " + LOB_MAP +
+                                "(LOB, SEQ, POS, HASH, BLOCK) " +
+                                "SELECT ?, SEQ, POS, HASH, BLOCK FROM " +
+                                LOB_MAP + " WHERE LOB = ?";
                         PreparedStatement prep = prepare(sql);
                         prep.setLong(1, lobId);
                         prep.setLong(2, oldLobId);
                         prep.executeUpdate();
                         reuse(sql, prep);
 
-                        sql = "INSERT INTO " + LOBS + "(ID, BYTE_COUNT, TABLE) " +
-                                "SELECT ?, BYTE_COUNT, ? FROM " + LOBS + " WHERE ID = ?";
+                        sql = "INSERT INTO " + LOBS +
+                                "(ID, BYTE_COUNT, TABLE) " +
+                                "SELECT ?, BYTE_COUNT, ? FROM " + LOBS +
+                                " WHERE ID = ?";
                         prep = prepare(sql);
                         prep.setLong(1, lobId);
                         prep.setLong(2, tableId);
@@ -477,8 +480,9 @@ public class LobStorageBackend implements LobStorageInterface {
                         reuse(sql, prep);
 
                         v = ValueLobDb.create(type, database, tableId, lobId, null, length);
-                    }else{
-                        //Recovery process, no need to copy LOB using normal infrastructure
+                    } else {
+                        // Recovery process, no need to copy LOB using normal
+                        // infrastructure
                         v = ValueLobDb.create(type, database, tableId, oldLobId, null, length);
                     }
                     return v;
@@ -614,7 +618,7 @@ public class LobStorageBackend implements LobStorageInterface {
 
     private static void assertNotHolds(Object lock) {
         if (Thread.holdsLock(lock)) {
-            throw DbException.throwInternalError();
+            throw DbException.throwInternalError(lock.toString());
         }
     }
 
@@ -625,7 +629,7 @@ public class LobStorageBackend implements LobStorageInterface {
      */
     static void assertHoldsLock(Object lock) {
         if (!Thread.holdsLock(lock)) {
-            throw DbException.throwInternalError();
+            throw DbException.throwInternalError(lock.toString());
         }
     }
 

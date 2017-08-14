@@ -103,15 +103,19 @@ public class JdbcPreparedStatement extends JdbcStatement implements
                 checkClosed();
                 closeOldResultSet();
                 ResultInterface result;
+                boolean lazy = false;
                 boolean scrollable = resultSetType != ResultSet.TYPE_FORWARD_ONLY;
                 boolean updatable = resultSetConcurrency == ResultSet.CONCUR_UPDATABLE;
                 try {
                     setExecutingStatement(command);
                     result = command.executeQuery(maxRows, scrollable);
+                    lazy = result.isLazy();
                 } finally {
-                    setExecutingStatement(null);
+                    if (!lazy) {
+                        setExecutingStatement(null);
+                    }
                 }
-                resultSet = new JdbcResultSet(conn, this, result, id,
+                resultSet = new JdbcResultSet(conn, this, command, result, id,
                         closedByResultSet, scrollable, updatable, cachedColumnLabelMap);
             }
             return resultSet;
@@ -186,6 +190,7 @@ public class JdbcPreparedStatement extends JdbcStatement implements
                 boolean returnsResultSet;
                 synchronized (conn.getSession()) {
                     closeOldResultSet();
+                    boolean lazy = false;
                     try {
                         setExecutingStatement(command);
                         if (command.isQuery()) {
@@ -193,15 +198,18 @@ public class JdbcPreparedStatement extends JdbcStatement implements
                             boolean scrollable = resultSetType != ResultSet.TYPE_FORWARD_ONLY;
                             boolean updatable = resultSetConcurrency == ResultSet.CONCUR_UPDATABLE;
                             ResultInterface result = command.executeQuery(maxRows, scrollable);
-                            resultSet = new JdbcResultSet(conn, this, result,
+                            lazy = result.isLazy();
+                            resultSet = new JdbcResultSet(conn, this, command, result,
                                     id, closedByResultSet, scrollable,
-                                    updatable);
+                                    updatable, cachedColumnLabelMap);
                         } else {
                             returnsResultSet = false;
                             updateCount = command.executeUpdate();
                         }
                     } finally {
-                        setExecutingStatement(null);
+                        if (!lazy) {
+                            setExecutingStatement(null);
+                        }
                     }
                 }
                 return returnsResultSet;
@@ -875,11 +883,29 @@ public class JdbcPreparedStatement extends JdbcStatement implements
     }
 
     /**
-     * [Not supported] Sets the value of a parameter as a Array.
+     * Sets the value of a parameter as an Array.
+     *
+     * @param parameterIndex the parameter index (1, 2, ...)
+     * @param x the value
+     * @throws SQLException if this object is closed
      */
     @Override
     public void setArray(int parameterIndex, Array x) throws SQLException {
-        throw unsupported("setArray");
+        try {
+            if (isDebugEnabled()) {
+                debugCode("setArray("+parameterIndex+", x);");
+            }
+            checkClosed();
+            Value v;
+            if (x == null) {
+                v = ValueNull.INSTANCE;
+            } else {
+                v = DataType.convertToValue(session, x.getArray(), Value.ARRAY);
+            }
+            setParameter(parameterIndex, v);
+        } catch (Exception e) {
+            throw logAndConvert(e);
+        }
     }
 
     /**

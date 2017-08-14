@@ -6,10 +6,10 @@ Initial Developer: H2 Group
 -->
 <html>
 <head>
-<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
-<title>${text.a.title}</title>
-<link rel="stylesheet" type="text/css" href="stylesheet.css" />
-<script type="text/javascript" src="tree.js"></script>
+    <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+    <title>${text.a.title}</title>
+    <link rel="stylesheet" type="text/css" href="stylesheet.css" />
+    <script type="text/javascript" src="tree.js"></script>
 <script type="text/javascript">
 <!--
 ${tree}
@@ -19,15 +19,17 @@ ${tree}
 </head>
 <body>
 
-	<div class="tree">
-		<script type="text/javascript">
+<div class="tree">
+<script type="text/javascript">
 <!--
 writeTree();
 //-->
 </script>
-	</div>
+</div>
 
-	<p class="error">${error}</p>
+<p class="error">
+    ${error}
+</p>
 
 </body>
 </html>

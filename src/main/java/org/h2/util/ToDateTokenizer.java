@@ -122,7 +122,7 @@ class ToDateTokenizer {
          * @param formatTokenStr the format string
          */
         void parse(ToDateParser params, FormatTokenEnum formatTokenEnum,
-                String formatTokenStr);
+                   String formatTokenStr);
     }
 
     /**

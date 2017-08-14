@@ -83,7 +83,7 @@ public class Function extends Expression implements FunctionCall {
             TRUNCATE = 27, SECURE_RAND = 28, HASH = 29, ENCRYPT = 30,
             DECRYPT = 31, COMPRESS = 32, EXPAND = 33, ZERO = 34,
             RANDOM_UUID = 35, COSH = 36, SINH = 37, TANH = 38, LN = 39,
-            BITGET=40;
+            BITGET = 40;
 
     public static final int ASCII = 50, BIT_LENGTH = 51, CHAR = 52,
             CHAR_LENGTH = 53, CONCAT = 54, DIFFERENCE = 55, HEXTORAW = 56,
@@ -251,6 +251,7 @@ public class Function extends Expression implements FunctionCall {
         addFunction("ZERO", ZERO, 0, Value.INT);
         addFunctionNotDeterministic("RANDOM_UUID", RANDOM_UUID, 0, Value.UUID);
         addFunctionNotDeterministic("SYS_GUID", RANDOM_UUID, 0, Value.UUID);
+        addFunctionNotDeterministic("UUID", RANDOM_UUID, 0, Value.UUID);
         // string
         addFunction("ASCII", ASCII, 1, Value.INT);
         addFunction("BIT_LENGTH", BIT_LENGTH, 1, Value.LONG);
@@ -313,17 +314,25 @@ public class Function extends Expression implements FunctionCall {
                 0, Value.DATE);
         addFunctionNotDeterministic("CURDATE", CURDATE,
                 0, Value.DATE);
-        addFunction("TO_DATE", TO_DATE, VAR_ARGS, Value.STRING);
-        addFunction("TO_TIMESTAMP", TO_TIMESTAMP, VAR_ARGS, Value.STRING);
+        addFunctionNotDeterministic("TODAY", CURRENT_DATE,
+                0, Value.DATE);
+        addFunction("TO_DATE", TO_DATE, VAR_ARGS, Value.TIMESTAMP);
+        addFunction("TO_TIMESTAMP", TO_TIMESTAMP, VAR_ARGS, Value.TIMESTAMP);
         addFunction("ADD_MONTHS", ADD_MONTHS, 2, Value.TIMESTAMP);
         // alias for MSSQLServer
         addFunctionNotDeterministic("GETDATE", CURDATE,
                 0, Value.DATE);
         addFunctionNotDeterministic("CURRENT_TIME", CURRENT_TIME,
                 0, Value.TIME);
+        addFunctionNotDeterministic("SYSTIME", CURRENT_TIME,
+                0, Value.TIME);
         addFunctionNotDeterministic("CURTIME", CURTIME,
                 0, Value.TIME);
         addFunctionNotDeterministic("CURRENT_TIMESTAMP", CURRENT_TIMESTAMP,
+                VAR_ARGS, Value.TIMESTAMP);
+        addFunctionNotDeterministic("SYSDATE", CURRENT_TIMESTAMP,
+                VAR_ARGS, Value.TIMESTAMP);
+        addFunctionNotDeterministic("SYSTIMESTAMP", CURRENT_TIMESTAMP,
                 VAR_ARGS, Value.TIMESTAMP);
         addFunctionNotDeterministic("NOW", NOW,
                 VAR_ARGS, Value.TIMESTAMP);
@@ -498,13 +507,13 @@ public class Function extends Expression implements FunctionCall {
     }
 
     private static void addFunction(String name, int type, int parameterCount,
-            int dataType, boolean nullIfParameterIsNull, boolean deterministic,
+            int returnDataType, boolean nullIfParameterIsNull, boolean deterministic,
             boolean bufferResultSetToLocalTemp) {
         FunctionInfo info = new FunctionInfo();
         info.name = name;
         info.type = type;
         info.parameterCount = parameterCount;
-        info.dataType = dataType;
+        info.returnDataType = returnDataType;
         info.nullIfParameterIsNull = nullIfParameterIsNull;
         info.deterministic = deterministic;
         info.bufferResultSetToLocalTemp = bufferResultSetToLocalTemp;
@@ -512,18 +521,18 @@ public class Function extends Expression implements FunctionCall {
     }
 
     private static void addFunctionNotDeterministic(String name, int type,
-            int parameterCount, int dataType) {
-        addFunction(name, type, parameterCount, dataType, true, false, true);
+            int parameterCount, int returnDataType) {
+        addFunction(name, type, parameterCount, returnDataType, true, false, true);
     }
 
     private static void addFunction(String name, int type, int parameterCount,
-            int dataType) {
-        addFunction(name, type, parameterCount, dataType, true, true, true);
+            int returnDataType) {
+        addFunction(name, type, parameterCount, returnDataType, true, true, true);
     }
 
     private static void addFunctionWithNull(String name, int type,
-            int parameterCount, int dataType) {
-        addFunction(name, type, parameterCount, dataType, false, true, true);
+            int parameterCount, int returnDataType) {
+        addFunction(name, type, parameterCount, returnDataType, false, true, true);
     }
 
     /**
@@ -1233,12 +1242,16 @@ public class Function extends Expression implements FunctionCall {
             break;
         case ROUND: {
             double f = v1 == null ? 1. : Math.pow(10., v1.getDouble());
-            result = ValueDouble.get(Math.round(v0.getDouble() * f) / f);
+
+            double middleResult = v0.getDouble() * f;
+
+            int oneWithSymbol = middleResult > 0 ? 1 : -1;
+            result = ValueDouble.get(Math.round(Math.abs(middleResult)) / f * oneWithSymbol);
             break;
         }
         case TRUNCATE: {
             if (v0.getType() == Value.TIMESTAMP) {
-                java.sql.Timestamp d = v0.getTimestamp();
+                Timestamp d = v0.getTimestamp();
                 Calendar c = Calendar.getInstance();
                 c.setTime(d);
                 c.set(Calendar.HOUR_OF_DAY, 0);
@@ -1258,7 +1271,7 @@ public class Function extends Expression implements FunctionCall {
             } else if (v0.getType() == Value.STRING) {
                 ValueString vd = (ValueString) v0;
                 Calendar c = Calendar.getInstance();
-                c.setTime(ValueTimestamp.parse(vd.getString()).getDate());
+                c.setTime(ValueTimestamp.parse(vd.getString(), session.getDatabase().getMode()).getDate());
                 c.set(Calendar.HOUR_OF_DAY, 0);
                 c.set(Calendar.MINUTE, 0);
                 c.set(Calendar.SECOND, 0);
@@ -1875,6 +1888,7 @@ public class Function extends Expression implements FunctionCall {
         default:
             break;
         }
+        calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
         calendar.setTimeInMillis(t1);
         int year1 = calendar.get(Calendar.YEAR);
         int month1 = calendar.get(Calendar.MONTH);
@@ -2470,7 +2484,7 @@ public class Function extends Expression implements FunctionCall {
         }
         case SUBSTRING:
         case SUBSTR: {
-            t = info.dataType;
+            t = info.returnDataType;
             p = args[0].getPrecision();
             s = 0;
             if (args[1].isConstant()) {
@@ -2487,7 +2501,7 @@ public class Function extends Expression implements FunctionCall {
             break;
         }
         default:
-            t = info.dataType;
+            t = info.returnDataType;
             DataType type = DataType.getDataType(t);
             p = PRECISION_UNKNOWN;
             d = 0;

@@ -5,11 +5,11 @@ and the EPL 1.0 (http://h2database.com/html/license.html).
 Initial Developer: H2 Group
 -->
 <html>
-<head>
-<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
-<title>${text.a.title}</title>
-<link rel="stylesheet" type="text/css" href="stylesheet.css" />
-<script type="text/javascript">
+    <head>
+        <meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+        <title>${text.a.title}</title>
+        <link rel="stylesheet" type="text/css" href="stylesheet.css" />
+        <script type="text/javascript">
 //<!--
 
 var agent=navigator.userAgent.toLowerCase();
@@ -508,33 +508,23 @@ function doAutoSelect() {
 //-->
 </script>
 </head>
-<body onresize="sizeTextArea();" onload="sizeTextArea();"
-	style="margin: 0px; padding: 0px;">
-	<form name="h2query"
-		action="javascript:alert('should not be submitting this form');">
-		<span style="white-space: nowrap"> <input type="button"
-			class="button" value="${text.toolbar.run}"
-			onclick="javascript:submitAll();sql.focus();return true;" /> <input
-			type="button" class="button" value="${text.toolbar.runSelected}"
-			onclick="javascript:submitSelected();sql.focus();return true;" /> <input
-			type="button" class="button" value="${text.toolbar.autoComplete}"
-			onclick="javascript:manualAutoComplete();sql.focus();return true;" />
-			<input type="button" class="button" value="${text.toolbar.clear}"
-			onclick="javascript:sql.value='';keyUp();sql.focus();return true;" />
-			${text.toolbar.sqlStatement}:
-		</span>
-		<div style="display: none">
-			<iframe id="h2iframeTransport" src=""
-				onload="showList(this.contentWindow.document.body.innerHTML);"></iframe>
-		</div>
-		<textarea id="sql" name="sql" cols="80" rows="5"
-			onkeydown="return keyDown(event)" onkeyup="return keyUp(event)"
-			onfocus="keyUp()" onchange="return keyUp()">${query}</textarea>
-	</form>
-	<form name="h2querysubmit" method="post"
-		action="query.do?jsessionid=${sessionId}" target="h2result"
-		style="display: none">
-		<textarea id="sql" name="sql" style="display: none"></textarea>
-	</form>
-</body>
+    <body onresize="sizeTextArea();" onload="sizeTextArea();" style="margin: 0px; padding: 0px;">
+        <form name="h2query" action="javascript:alert('should not be submitting this form');">
+            <span style="white-space:nowrap">
+                <input type="button" class="button" value="${text.toolbar.run}" onclick="javascript:submitAll();sql.focus();return true;" />
+                <input type="button" class="button" value="${text.toolbar.runSelected}" onclick="javascript:submitSelected();sql.focus();return true;" />
+                <input type="button" class="button" value="${text.toolbar.autoComplete}" onclick="javascript:manualAutoComplete();sql.focus();return true;" />
+                <input type="button" class="button" value="${text.toolbar.clear}" onclick="javascript:sql.value='';keyUp();sql.focus();return true;" />
+                ${text.toolbar.sqlStatement}:
+            </span>
+            <div style="display:none">
+                <iframe id="h2iframeTransport" src="" onload="showList(this.contentWindow.document.body.innerHTML);"></iframe>
+            </div>
+            <textarea id="sql" name="sql" cols="80" rows="5" onkeydown="return keyDown(event)" onkeyup="return keyUp(event)"
+                onfocus="keyUp()" onchange="return keyUp()">${query}</textarea>
+        </form>
+        <form name="h2querysubmit" method="post" action="query.do?jsessionid=${sessionId}" target="h2result" style="display:none">
+            <textarea id="sql" name="sql" style="display:none"></textarea>
+        </form>
+    </body>
 </html>
